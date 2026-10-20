@@ -1,27 +1,22 @@
-
 name: Build KANASHI-Flix APK
 
 on:
 workflow_dispatch:
 push:
-branches: [main]
-paths:
-- '.github/workflows/build-android.yml'
+branches:
+- main
 
 permissions:
 contents: read
 
 jobs:
 build:
+name: Build Android APK
 runs-on: ubuntu-latest
-steps:
-- name: Checkout repository
-uses: actions/checkout@v4
 
-  - name: Locate Android project
-    run: |
-      find . -name gradlew -type f
-      find . -name settings.gradle -o -name settings.gradle.kts
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
 
   - name: Set up Java
     uses: actions/setup-java@v4
@@ -29,15 +24,25 @@ uses: actions/checkout@v4
       distribution: temurin
       java-version: '21'
 
-  - name: Build APK
+  - name: Find Android project
+    id: project
+    shell: bash
     run: |
-      GRADLEW=$(find . -name gradlew -type f | head -n 1)
+      GRADLEW=$(find . -type f -name gradlew -not -path '*/.gradle/*' | head -n 1)
       if [ -z "$GRADLEW" ]; then
-        echo "ERROR: gradlew tidak ditemukan. Periksa struktur proyek Android."
+        echo "ERROR: gradlew tidak ditemukan. Pastikan proyek Android sudah diekstrak."
+        find . -maxdepth 3 -type f | head -n 80
         exit 1
       fi
       PROJECT_DIR=$(dirname "$GRADLEW")
-      cd "$PROJECT_DIR"
+      echo "dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+      echo "Proyek Android ditemukan: $PROJECT_DIR"
+
+  - name: Build APK
+    working-directory: .
+    shell: bash
+    run: |
+      cd "${{ steps.project.outputs.dir }}"
       chmod +x gradlew
       ./gradlew assembleDebug --no-daemon
 
