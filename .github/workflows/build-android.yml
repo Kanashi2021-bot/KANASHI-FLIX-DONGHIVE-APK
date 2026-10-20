@@ -1,42 +1,52 @@
 name: Build KANASHI-Flix APK
-on: [push, workflow_dispatch]
+
+'on':
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-build:
-runs-on: ubuntu-latest
-steps:
-- name: Ambil kode proyek
-uses: actions/checkout@v4
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
 
-  - name: Siapkan Java
-    uses: actions/setup-java@v4
-    with:
-      distribution: temurin
-      java-version: '21'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  - name: Periksa struktur proyek
-    run: |
-      echo "Daftar file proyek:"
-      find . -maxdepth 3 -type f | head -100
-      echo "Mencari Gradle wrapper..."
-      find . -type f -name gradlew
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
 
-  - name: Build APK
-    run: |
-      GRADLEW=$(find . -type f -name gradlew | head -1)
-      if [ -z "$GRADLEW" ]; then
-        echo "ERROR: Gradle wrapper tidak ditemukan."
-        exit 1
-      fi
-      DIR=$(dirname "$GRADLEW")
-      cd "$DIR"
-      chmod +x gradlew
-      ./gradlew assembleDebug --no-daemon
+      - name: Find Android project
+        id: project
+        shell: bash
+        run: |
+          GRADLEW=$(find . -type f -name gradlew -not -path '*/.gradle/*' | head -n 1)
+          if [ -z "$GRADLEW" ]; then
+            echo "ERROR: File gradlew tidak ditemukan."
+            echo "Periksa apakah proyek Android sudah diekstrak."
+            find . -maxdepth 3 -type f | head -80
+            exit 1
+          fi
+          echo "dir=$(dirname "$GRADLEW")" >> "$GITHUB_OUTPUT"
 
-  - name: Simpan APK
-    if: success()
-    uses: actions/upload-artifact@v4
-    with:
-      name: KANASHI-Flix-APK
-      path: '**/build/outputs/apk/debug/*.apk'
-      if-no-files-found: error
+      - name: Build APK
+        shell: bash
+        run: |
+          cd "${{ steps.project.outputs.dir }}"
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: KANASHI-Flix-APK
+          path: '**/build/outputs/apk/debug/*.apk'
+          if-no-files-found: error
