@@ -1,54 +1,42 @@
 name: Build KANASHI-Flix APK
-
-on:
-workflow_dispatch:
-push:
-branches:
-- main
-
-permissions:
-contents: read
+on: [push, workflow_dispatch]
 
 jobs:
 build:
-name: Build Android APK
 runs-on: ubuntu-latest
-
 steps:
-  - name: Checkout repository
-    uses: actions/checkout@v4
+- name: Ambil kode proyek
+uses: actions/checkout@v4
 
-  - name: Set up Java
+  - name: Siapkan Java
     uses: actions/setup-java@v4
     with:
       distribution: temurin
       java-version: '21'
 
-  - name: Find Android project
-    id: project
-    shell: bash
+  - name: Periksa struktur proyek
     run: |
-      GRADLEW=$(find . -type f -name gradlew -not -path '*/.gradle/*' | head -n 1)
-      if [ -z "$GRADLEW" ]; then
-        echo "ERROR: gradlew tidak ditemukan. Pastikan proyek Android sudah diekstrak."
-        find . -maxdepth 3 -type f | head -n 80
-        exit 1
-      fi
-      PROJECT_DIR=$(dirname "$GRADLEW")
-      echo "dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
-      echo "Proyek Android ditemukan: $PROJECT_DIR"
+      echo "Daftar file proyek:"
+      find . -maxdepth 3 -type f | head -100
+      echo "Mencari Gradle wrapper..."
+      find . -type f -name gradlew
 
   - name: Build APK
-    working-directory: .
-    shell: bash
     run: |
-      cd "${{ steps.project.outputs.dir }}"
+      GRADLEW=$(find . -type f -name gradlew | head -1)
+      if [ -z "$GRADLEW" ]; then
+        echo "ERROR: Gradle wrapper tidak ditemukan."
+        exit 1
+      fi
+      DIR=$(dirname "$GRADLEW")
+      cd "$DIR"
       chmod +x gradlew
       ./gradlew assembleDebug --no-daemon
 
-  - name: Upload APK
+  - name: Simpan APK
+    if: success()
     uses: actions/upload-artifact@v4
     with:
       name: KANASHI-Flix-APK
       path: '**/build/outputs/apk/debug/*.apk'
-      if-no-files-found: error 
+      if-no-files-found: error
