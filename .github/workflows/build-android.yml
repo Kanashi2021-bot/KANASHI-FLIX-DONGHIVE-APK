@@ -1,1 +1,49 @@
 
+name: Build KANASHI-Flix APK
+
+on:
+workflow_dispatch:
+push:
+branches: [main]
+paths:
+- '.github/workflows/build-android.yml'
+
+permissions:
+contents: read
+
+jobs:
+build:
+runs-on: ubuntu-latest
+steps:
+- name: Checkout repository
+uses: actions/checkout@v4
+
+  - name: Locate Android project
+    run: |
+      find . -name gradlew -type f
+      find . -name settings.gradle -o -name settings.gradle.kts
+
+  - name: Set up Java
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: '21'
+
+  - name: Build APK
+    run: |
+      GRADLEW=$(find . -name gradlew -type f | head -n 1)
+      if [ -z "$GRADLEW" ]; then
+        echo "ERROR: gradlew tidak ditemukan. Periksa struktur proyek Android."
+        exit 1
+      fi
+      PROJECT_DIR=$(dirname "$GRADLEW")
+      cd "$PROJECT_DIR"
+      chmod +x gradlew
+      ./gradlew assembleDebug --no-daemon
+
+  - name: Upload APK
+    uses: actions/upload-artifact@v4
+    with:
+      name: KANASHI-Flix-APK
+      path: '**/build/outputs/apk/debug/*.apk'
+      if-no-files-found: error
